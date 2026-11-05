@@ -3,6 +3,9 @@
 
 from my_assistant import FAQAssistant
 from my_tool import StoreInformation
+from ollama_model import OllamaModel
+
+MODEL_NAME = "granite4.1:3b"
 
 FAQ_INFORMATION = {
     "christmas": "Our store hours stay the same on holidays.",
@@ -25,10 +28,19 @@ FAQ_INFORMATION = {
 }
 
 store_information = StoreInformation(FAQ_INFORMATION)
+INSTRUCTIONS = """You are Kc, an assistant for Grass Dragon, a volleyball equipment store.
+Answer in one short sentence.
+We sell volleyballs, knee pads, and court shoes.
+Teams of 6 or more players get 10 percent off.
+Only state facts that appear in these instructions.
+If you do not know, say you do not know and offer to pass the customer to a store employee."""
+
+model = OllamaModel(MODEL_NAME)
 assistant = FAQAssistant(
     "Kc",
-    "You answer customer questions for Grass Dragon, a volleyball equipment store.",
+    INSTRUCTIONS,
     store_information,
+    model,
 )
 
 print("Type a message, or type quit to stop.")
