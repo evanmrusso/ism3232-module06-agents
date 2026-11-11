@@ -1,6 +1,8 @@
 # my_assistant.py
 # Author: Evan Russo
 
+from chatbot import MAX_TOOL_ROUNDS
+
 HANDOFF_WORDS = ["refund", "damage", "broke", "my order"]
 
 
@@ -8,11 +10,11 @@ class FAQAssistant:
     """A FAQ assistant for Grass Dragon. Rules handle the store information and handoffs. A model handles the rest."""
 
     # Claude helped: indented every method one level so it belongs to the class.
-    def __init__(self, name, instructions, store_information, model):
+    def __init__(self, name, instructions, tools, model):
         """Set up one assistant with its own name, instructions, tool, model, and  history."""
         self.name = name
         self.instructions = instructions
-        self.store_information = store_information
+        self.tools = tools
         self.model = model
         self.history = []
 
@@ -24,20 +26,13 @@ class FAQAssistant:
         return reply
 
     def choose_reply(self, user_message):
-        """Use a rule when one applies. Otherwise ask the model."""
-        text = user_message.lower()
-        if self.needs_human(text):
-            return "I can't help with refunds, damaged items, or orders here. I'm passing you to a store employee."
-        if "?" in text:
-            return self.faq_reply(user_message)
+        """Pass refunds, damage, and orders to a person. Send the rest to the model."""
+        if self.needs_human(user_message.lower()):
+            return (
+                "I can't help with refunds, damaged items, or orders here. "
+                "I'm passing you to a store employee."
+            )
         return self.model_reply()
-
-    def model_reply(self):
-        """Ask the model for a reply. Give a safe answer if the model has no answer."""
-        reply = self.model.reply(self.instructions, self.history)
-        if reply is None:
-            return "The model can't answer that right now. Try again in a few minutes."
-        return reply
 
     def needs_human(self, text):
         """Return True if the message is about a refund, a damaged item, or an order, which a store employee must handle."""
@@ -46,10 +41,28 @@ class FAQAssistant:
                 return True
         return False
 
-    def faq_reply(self, user_message):
-        """Use store information to answer a question about faq information."""
-        keyword = self.store_information.find_keyword(user_message)
-        if keyword is None:
-            return self.model_reply()
-        answer = self.store_information.answer_for(keyword)
-        return answer
+    def model_reply(self):
+        """Ask the model. Run each tool it asks for, then ask again, up to a limit."""
+        rounds = 0
+        while rounds < MAX_TOOL_ROUNDS:
+            tool_list = self.tools.tool_list()
+            decision = self.model.decide(self.instructions, self.history, tool_list)
+            if decision is None:
+                return (
+                    "Sorry, I can't answer that right now. try again in a few minutes."
+                )
+            if "text" in decision:
+                return decision["text"]
+            name = decision["tool"]
+            arguments = decision["arguments"]
+            result = self.tools.run(name, arguments, self.history)
+            self.history.append(
+                {
+                    "role": "assistant",
+                    "tool": name,
+                    "arguments": arguments,
+                    "content": result,
+                }
+            )
+            rounds += 1
+        return "Sorry, I couldn't finish that. I'm passing you to a store employee."

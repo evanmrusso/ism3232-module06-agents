@@ -1,15 +1,18 @@
 # two_bots.py
 # Author: Evan Russo
 
+from change_queue import ChangeQueue
 from chatbot import SupportChatbot
-from mock_model import MockModel
+from keyword_model import KeywordModel
 from order_tool import OrderLookup
 from stock_tool import StockLookup
+from toolbox import ToolBox
 
 order_tool = OrderLookup({"A100": "shipped", "A101": "processing"})
 stock_tool = StockLookup({"rain jacket": 12, "day pack": 0})
+tools = ToolBox(order_tool, stock_tool, ChangeQueue(order_tool))
 
-model = MockModel()
+model = KeywordModel()
 
 sunny = SupportChatbot(
     "Sunny", "You are cheerful and brief.", order_tool, stock_tool, model
